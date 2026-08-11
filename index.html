@@ -396,11 +396,42 @@
   }
   .payment-row:last-of-type{ border-bottom:none; }
   .payment-row .pdate{ color: var(--muted); }
+  .payment-row .padd{ color: var(--gold-dark); font-weight:600; }
+  .payment-row .psub{ color: var(--brick-dark); font-weight:600; }
   .no-payments{
     font-size:12px;
     color: var(--muted);
     padding: 10px 0 2px;
     font-style: italic;
+  }
+  .mode-toggle{
+    display:flex;
+    gap:6px;
+    margin-top: 12px;
+  }
+  .mode-btn{
+    flex:1;
+    padding: 8px 6px;
+    border-radius: 7px;
+    border: 1.5px solid var(--line);
+    background: var(--paper-2);
+    color: var(--muted);
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:0.3px;
+    text-transform:uppercase;
+    font-family:'IBM Plex Mono', monospace;
+    cursor:pointer;
+  }
+  .mode-btn.active-sub{
+    background: rgba(181,86,60,0.14);
+    border-color: var(--brick);
+    color: var(--brick-dark);
+  }
+  .mode-btn.active-add{
+    background: rgba(212,167,61,0.16);
+    border-color: var(--gold);
+    color: var(--gold-dark);
   }
   .add-payment-row{
     display:flex;
@@ -686,6 +717,7 @@
   let state = load();
   let currentDirection = 'owed_to_me';
   let currentPersonId = null;
+  let entryMode = {}; // per-debt add/subtract toggle, resets each session; defaults to 'subtract'
 
   function load(){
     try{
@@ -710,8 +742,11 @@
   function paidSoFar(debt){
     return (debt.payments || []).reduce((s,p) => s + p.amount, 0);
   }
+  function addedSoFar(debt){
+    return (debt.additions || []).reduce((s,p) => s + p.amount, 0);
+  }
   function remaining(debt){
-    return Math.max(0, Math.round((debt.amount - paidSoFar(debt)) * 100) / 100);
+    return Math.max(0, Math.round((debt.amount + addedSoFar(debt) - paidSoFar(debt)) * 100) / 100);
   }
   function getBalance(personId){
     return state.debts
@@ -961,6 +996,7 @@
 
   function openDetail(personId){
     currentPersonId = personId;
+    entryMode = {};
     const person = state.people.find(p => p.id === personId);
     document.getElementById('detailName').textContent = person.name;
     renderDetail();
@@ -989,7 +1025,13 @@
       const rem = remaining(d);
       const isPaidFull = rem <= 0;
       const sign = d.direction === 'owed_to_me' ? '+' : '−';
-      const payments = (d.payments || []).slice().sort((a,b) => b.date.localeCompare(a.date));
+
+      const activity = [
+        ...(d.payments || []).map(p => ({...p, kind:'subtract'})),
+        ...(d.additions || []).map(a => ({...a, kind:'add'}))
+      ].sort((a,b) => b.date.localeCompare(a.date));
+
+      const mode = entryMode[d.id] || 'subtract';
 
       const card = document.createElement('div');
       card.className = 'entry-card ' + (d.direction === 'owed_to_me' ? 'pos' : 'neg') + (isPaidFull ? ' settled' : '');
@@ -997,27 +1039,31 @@
         <div class="entry-top" onclick="toggleExpand('${d.id}')">
           <div class="entry-text">
             <div class="desc">${escapeHtml(d.description)}</div>
-            <div class="date">${formatDate(d.date)}${payments.length ? ' · ' + payments.length + ' payment' + (payments.length>1?'s':'') : ''}</div>
+            <div class="date">${formatDate(d.date)}${activity.length ? ' · ' + activity.length + ' update' + (activity.length>1?'s':'') : ''}</div>
           </div>
           <div style="display:flex; align-items:center;">
             <div class="entry-amts">
               <div class="remaining">${isPaidFull ? 'Paid' : sign + fmt(rem)}</div>
-              ${payments.length ? `<div class="original">${fmt(d.amount)} orig.</div>` : ''}
+              ${activity.length ? `<div class="original">${fmt(d.amount)} orig.</div>` : ''}
             </div>
             <span class="entry-caret" id="caret-${d.id}">▾</span>
           </div>
         </div>
         <div class="entry-body" id="body-${d.id}">
-          ${payments.length
-            ? payments.map(p => `<div class="payment-row"><span class="pdate">${formatDate(p.date)}</span><span>${fmt(p.amount)}</span></div>`).join('')
-            : '<div class="no-payments">No payments logged yet</div>'
+          ${activity.length
+            ? activity.map(a => `<div class="payment-row"><span class="pdate">${formatDate(a.date)}</span><span class="${a.kind==='add' ? 'padd' : 'psub'}">${a.kind==='add' ? '+' : '−'}${fmt(a.amount)}</span></div>`).join('')
+            : '<div class="no-payments">No activity logged yet</div>'
           }
-          ${isPaidFull
+          ${isPaidFull && mode === 'subtract'
             ? '<div class="paid-full-tag">✓ Paid in full</div>'
-            : `<div class="add-payment-row">
-                 <input type="number" step="0.01" placeholder="Amount" id="payamt-${d.id}">
-                 <input type="date" id="paydate-${d.id}" value="${new Date().toISOString().slice(0,10)}">
-                 <button onclick="addPayment('${d.id}', event)">Add</button>
+            : `<div class="mode-toggle">
+                 <button type="button" class="mode-btn ${mode==='subtract'?'active-sub':''}" onclick="setEntryMode('${d.id}','subtract', event)">− Subtracting</button>
+                 <button type="button" class="mode-btn ${mode==='add'?'active-add':''}" onclick="setEntryMode('${d.id}','add', event)">+ Adding</button>
+               </div>
+               <div class="add-payment-row">
+                 <input type="number" step="0.01" placeholder="Amount" id="actamt-${d.id}">
+                 <input type="date" id="actdate-${d.id}" value="${new Date().toISOString().slice(0,10)}">
+                 <button onclick="logActivity('${d.id}', event)">${mode === 'add' ? 'Add' : 'Subtract'}</button>
                </div>`
           }
         </div>
@@ -1033,20 +1079,35 @@
     caret.textContent = isOpen ? '▴' : '▾';
   }
 
-  function addPayment(debtId, evt){
+  function setEntryMode(debtId, mode, evt){
+    if(evt) evt.stopPropagation();
+    entryMode[debtId] = mode;
+    renderDetail();
+    const body = document.getElementById('body-' + debtId);
+    const caret = document.getElementById('caret-' + debtId);
+    if(body){ body.classList.add('open'); caret.textContent = '▴'; }
+  }
+
+  function logActivity(debtId, evt){
     evt.stopPropagation();
     const debt = state.debts.find(d => d.id === debtId);
-    const amtInput = document.getElementById('payamt-' + debtId);
-    const dateInput = document.getElementById('paydate-' + debtId);
+    const mode = entryMode[debtId] || 'subtract';
+    const amtInput = document.getElementById('actamt-' + debtId);
+    const dateInput = document.getElementById('actdate-' + debtId);
     const amt = parseFloat(amtInput.value);
     const date = dateInput.value || new Date().toISOString().slice(0,10);
 
-    if(!amt || amt <= 0){ alert('Enter a valid payment amount.'); return; }
+    if(!amt || amt <= 0){ alert('Enter a valid amount.'); return; }
 
-    const rem = remaining(debt);
-    const applied = Math.min(amt, rem);
-    if(!debt.payments) debt.payments = [];
-    debt.payments.push({ id: uid(), amount: applied, date });
+    if(mode === 'add'){
+      if(!debt.additions) debt.additions = [];
+      debt.additions.push({ id: uid(), amount: amt, date });
+    } else {
+      const rem = remaining(debt);
+      const applied = Math.min(amt, rem);
+      if(!debt.payments) debt.payments = [];
+      debt.payments.push({ id: uid(), amount: applied, date });
+    }
 
     save();
     renderDetail();
@@ -1079,6 +1140,10 @@
     }
   });
 
+  renderHome();
+</script>
+</body>
+</html>
   renderHome();
 </script>
 </body>
