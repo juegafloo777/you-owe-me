@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You Owe Me — IOU Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2EDE1;
+    --paper-2:#E9E1CE;
+    --ink:#1F2A24;
+    --ledger:#122622;
+    --ledger-2:#1B3530;
+    --gold:#D4A73D;
+    --gold-dark:#A8802A;
+    --brick:#B5563C;
+    --brick-dark:#8C4029;
+    --line: rgba(31,42,36,0.18);
+    --muted:#75705D;
+    --shadow: 0 6px 18px rgba(18,38,34,0.18);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Work Sans', sans-serif;
+    background: var(--ledger);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(255,255,255,0.03), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(255,255,255,0.03), transparent 40%);
+    color: var(--ink);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding: 28px 14px 60px;
+  }
+  #app{
+    width:100%;
+    max-width:460px;
+  }
+
+  /* ---------- Header / ledger cover ---------- */
+  .cover{
+    background: linear-gradient(180deg, var(--ledger-2), var(--ledger));
+    border-radius: 18px;
+    padding: 22px 22px 26px;
+    color: var(--paper);
+    position:relative;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(212,167,61,0.25);
+  }
+  .settings-gear{
+    position:absolute;
+    top:18px; right:18px;
+    width:34px; height:34px;
+    border-radius:50%;
+    background: rgba(242,237,225,0.08);
+    border: 1px solid rgba(242,237,225,0.18);
+    color: var(--paper);
+    font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .cover-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color: var(--gold);
+    margin:0 0 6px;
+  }
+  .cover-title{
+    font-family:'Special Elite', monospace;
+    font-size: 30px;
+    margin:0;
+    letter-spacing: 0.5px;
+  }
+  .cover-sub{
+    font-size:13px;
+    color: rgba(242,237,225,0.65);
+    margin: 6px 0 18px;
+  }
+  .totals-row{
+    display:flex;
+    gap:10px;
+  }
+  .total-chip{
+    flex:1;
+    background: rgba(242,237,225,0.06);
+    border: 1px solid rgba(242,237,225,0.14);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .total-chip .label{
+    font-size:10px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color: rgba(242,237,225,0.55);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .total-chip .amount{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:20px;
+    font-weight:600;
+    margin-top:4px;
+  }
+  .total-chip.owed .amount{ color: var(--gold); }
+  .total-chip.owe .amount{ color: var(--brick); }
+
+  /* ---------- Section label ---------- */
+  .section-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color: rgba(242,237,225,0.45);
+    margin: 26px 4px 10px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section-label::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background: rgba(242,237,225,0.14);
+  }
+
+  /* ---------- Person cards ---------- */
+  .card-list{ display:flex; flex-direction:column; gap:12px; }
+  .card-wrap{
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .card-delete-bg{
+    position:absolute;
+    top:0; right:0; bottom:0;
+    width: 92px;
+    background: var(--brick);
+    color: var(--paper);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    cursor:pointer;
+    user-select:none;
+  }
+  .card-delete-bg .icon{ font-size:16px; }
+  .person-card{
+    position:relative;
+    z-index:1;
+    background: var(--paper);
+    border-radius: 4px;
+    padding: 16px 16px 14px;
+    cursor:pointer;
+    border-bottom: 3px solid transparent;
+    background-image: repeating-linear-gradient(to bottom, transparent 0 41px, var(--line) 41px 42px);
+    touch-action: pan-y;
+    user-select:none;
+  }
+  .person-card.pos{ border-bottom-color: var(--gold); }
+  .person-card.neg{ border-bottom-color: var(--brick); }
+  .person-card .row1{
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .person-card .name{
+    font-family:'Special Elite', monospace;
+    font-size:17px;
+  }
+  .person-card .amount{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:17px;
+  }
+  .person-card.pos .amount{ color: var(--gold-dark); }
+  .person-card.neg .amount{ color: var(--brick-dark); }
+  .person-card .meta{
+    font-size:12px;
+    color: var(--muted);
+    margin-top:3px;
+  }
+  .empty-state{
+    text-align:center;
+    color: rgba(242,237,225,0.5);
+    font-size:13px;
+    padding: 30px 10px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+
+  /* ---------- FAB ---------- */
+  .fab{
+    position: fixed;
+    bottom: 26px;
+    left:50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--ledger);
+    border:none;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing: 0.5px;
+    padding: 14px 26px;
+    border-radius: 30px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    max-width:460px;
+    width: calc(100% - 28px);
+    justify-content:center;
+  }
+  .fab:active{ transform: translateX(-50%) scale(0.97); }
+
+  /* ---------- Overlay screens ---------- */
+  .overlay{
+    position: fixed;
+    inset:0;
+    background: var(--ledger);
+    z-index: 50;
+    display:none;
+    overflow-y:auto;
+    padding: 24px 16px 100px;
+  }
+  .overlay.show{ display:block; }
+  .overlay-inner{
+    max-width: 460px;
+    margin: 0 auto;
+  }
+  .top-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom: 18px;
+  }
+  .back-btn{
+    background: rgba(242,237,225,0.08);
+    border:1px solid rgba(242,237,225,0.18);
+    color: var(--paper);
+    width:36px; height:36px;
+    border-radius:50%;
+    font-size:16px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .top-bar h2{
+    font-family:'Special Elite', monospace;
+    color: var(--paper);
+    margin:0;
+    font-size:20px;
+  }
+
+  /* Person detail */
+  .balance-stamp{
+    text-align:center;
+    padding: 22px 10px 26px;
+  }
+  .balance-stamp .amount{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 40px;
+    font-weight:600;
+  }
+  .balance-stamp .label{
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color: rgba(242,237,225,0.55);
+    margin-top:6px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .settle-btn{
+    display:inline-block;
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding: 9px 18px;
+    border-radius: 20px;
+    cursor:pointer;
+  }
+  .detail-actions{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .delete-btn{
+    display:inline-block;
+    background: transparent;
+    border: 1px solid rgba(181,86,60,0.6);
+    color: var(--brick);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding: 9px 18px;
+    border-radius: 20px;
+    cursor:pointer;
+  }
+  .entry-list{ display:flex; flex-direction:column; gap:10px; margin-top: 8px;}
+  .entry{
+    background: var(--paper);
+    border-radius:4px;
+    padding: 12px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow: var(--shadow);
+  }
+  .entry.settled{ opacity:0.5; }
+  .entry .desc{ font-size:14px; font-weight:500;}
+  .entry .date{ font-size:11px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono', monospace;}
+  .entry .amt{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:15px;
+  }
+  .entry.pos .amt{ color: var(--gold-dark); }
+  .entry.neg .amt{ color: var(--brick-dark); }
+  .entry-check{
+    width:22px;height:22px;
+    border-radius:50%;
+    border:1.5px solid var(--muted);
+    margin-right:10px;
+    flex-shrink:0;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;
+    color:transparent;
+  }
+  .entry-check.checked{
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ledger);
+  }
+  .entry-main{ display:flex; align-items:center; flex:1; min-width:0;}
+  .entry-text{ min-width:0; }
+  .entry-card{
+    background: var(--paper);
+    border-radius:4px;
+    box-shadow: var(--shadow);
+    overflow:hidden;
+  }
+  .entry-card.settled{ opacity:0.55; }
+  .entry-top{
+    padding: 12px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+  }
+  .entry-top .desc{ font-size:14px; font-weight:500;}
+  .entry-top .date{ font-size:11px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono', monospace;}
+  .entry-amts{ text-align:right; }
+  .entry-amts .remaining{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:15px;
+  }
+  .entry-amts .original{
+    font-size:10px;
+    color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    text-decoration: line-through;
+  }
+  .entry-card.pos .remaining{ color: var(--gold-dark); }
+  .entry-card.neg .remaining{ color: var(--brick-dark); }
+  .entry-caret{ font-size:11px; color: var(--muted); margin-left:8px; }
+  .entry-body{
+    display:none;
+    padding: 0 14px 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .entry-body.open{ display:block; }
+  .payment-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:12.5px;
+    padding: 7px 0;
+    border-bottom: 1px dotted var(--line);
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--ink);
+  }
+  .payment-row:last-of-type{ border-bottom:none; }
+  .payment-row .pdate{ color: var(--muted); }
+  .no-payments{
+    font-size:12px;
+    color: var(--muted);
+    padding: 10px 0 2px;
+    font-style: italic;
+  }
+  .add-payment-row{
+    display:flex;
+    gap:8px;
+    margin-top: 10px;
+  }
+  .add-payment-row input{
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family:'Work Sans', sans-serif;
+    font-size:13px;
+    color: var(--ink);
+  }
+  .add-payment-row input[type="number"]{ flex: 1; min-width:0; }
+  .add-payment-row input[type="date"]{ flex: 1.1; min-width:0; }
+  .add-payment-row button{
+    background: var(--gold);
+    border:none;
+    color: var(--ledger);
+    border-radius:6px;
+    padding: 8px 12px;
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .paid-full-tag{
+    font-size:11px;
+    color: var(--gold-dark);
+    font-family:'IBM Plex Mono', monospace;
+    margin-top:8px;
+  }
+
+  /* Custom confirm modal (native confirm() is unreliable in sandboxed previews) */
+  .confirm-backdrop{
+    position: fixed;
+    inset:0;
+    background: rgba(10,18,16,0.6);
+    z-index: 100;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding: 20px;
+  }
+  .confirm-backdrop.show{ display:flex; }
+  .confirm-box{
+    background: var(--paper);
+    border-radius: 12px;
+    padding: 22px 20px;
+    max-width: 340px;
+    width:100%;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+  }
+  .confirm-box h3{
+    font-family:'Special Elite', monospace;
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: var(--ink);
+  }
+  .confirm-box p{
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height:1.5;
+    margin: 0 0 20px;
+  }
+  .confirm-box .warn{ color: var(--brick-dark); font-weight:600; }
+  .confirm-actions{ display:flex; gap:10px; }
+  .confirm-actions button{
+    flex:1;
+    padding: 11px;
+    border-radius: 8px;
+    border: none;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    cursor:pointer;
+  }
+  .confirm-cancel{
+    background: var(--paper-2);
+    color: var(--ink);
+  }
+  .confirm-delete{
+    background: var(--brick);
+    color: var(--paper);
+  }
+
+  /* Form */
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color: rgba(242,237,225,0.55);
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    background: var(--paper);
+    border: none;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family:'Work Sans', sans-serif;
+    font-size:15px;
+    color: var(--ink);
+  }
+  .field input:focus, .field select:focus{
+    outline: 2px solid var(--gold);
+  }
+  .toggle-group{
+    display:flex;
+    gap:8px;
+  }
+  .toggle-btn{
+    flex:1;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1.5px solid rgba(242,237,225,0.2);
+    background: transparent;
+    color: rgba(242,237,225,0.7);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:'Work Sans', sans-serif;
+  }
+  .toggle-btn.active-owed{
+    background: rgba(212,167,61,0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .toggle-btn.active-owe{
+    background: rgba(181,86,60,0.15);
+    border-color: var(--brick);
+    color: var(--brick);
+  }
+  .submit-btn{
+    width:100%;
+    background: var(--gold);
+    color: var(--ledger);
+    border:none;
+    padding: 15px;
+    border-radius: 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    margin-top: 6px;
+  }
+  .submit-btn:active{ transform: scale(0.98); }
+
+  #personDatalist{}
+  .hint{ font-size:11px; color: rgba(242,237,225,0.4); margin-top:-10px; margin-bottom:16px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="cover">
+    <button class="settings-gear" onclick="openSettings()" aria-label="Settings">⚙</button>
+    <p class="cover-eyebrow" id="coverEyebrow">Private Ledger</p>
+    <h1 class="cover-title" id="coverTitle">You Owe Me</h1>
+    <p class="cover-sub" id="coverSub">Track what's owed. Settle when it's square.</p>
+    <div class="totals-row">
+      <div class="total-chip owed">
+        <div class="label">Owed to you</div>
+        <div class="amount" id="totalOwed">$0</div>
+      </div>
+      <div class="total-chip owe">
+        <div class="label">You owe</div>
+        <div class="amount" id="totalOwe">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Open tabs</div>
+  <div class="card-list" id="personList"></div>
+
+</div>
+
+<button class="fab" onclick="openAddScreen()">＋ Log a debt</button>
+
+<!-- ADD DEBT OVERLAY -->
+<div class="overlay" id="addOverlay">
+  <div class="overlay-inner">
+    <div class="top-bar">
+      <button class="back-btn" onclick="closeOverlay('addOverlay')">←</button>
+      <h2>Log a debt</h2>
+    </div>
+
+    <div class="field">
+      <label>Direction</label>
+      <div class="toggle-group">
+        <button type="button" class="toggle-btn" id="dirOwedBtn" onclick="setDirection('owed_to_me')">They owe me</button>
+        <button type="button" class="toggle-btn" id="dirOweBtn" onclick="setDirection('i_owe')">I owe them</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Who</label>
+      <input type="text" id="personInput" list="personDatalist" placeholder="e.g. Krystal">
+      <datalist id="personDatalist"></datalist>
+    </div>
+
+    <div class="field">
+      <label>Amount</label>
+      <input type="number" id="amountInput" placeholder="0.00" step="0.01" inputmode="decimal">
+    </div>
+
+    <div class="field">
+      <label>What for</label>
+      <input type="text" id="descInput" placeholder="e.g. gas money, dinner Friday">
+    </div>
+
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="dateInput">
+    </div>
+
+    <button class="submit-btn" onclick="submitDebt()">Add to the tab</button>
+  </div>
+</div>
+
+<!-- PERSON DETAIL OVERLAY -->
+<div class="overlay" id="detailOverlay">
+  <div class="overlay-inner">
+    <div class="top-bar">
+      <button class="back-btn" onclick="closeOverlay('detailOverlay')">←</button>
+      <h2 id="detailName">Name</h2>
+    </div>
+
+    <div class="balance-stamp">
+      <div class="amount" id="detailAmount">$0</div>
+      <div class="label" id="detailLabel">Settled up</div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="settle-btn" onclick="settleAll()">Settle full balance</button>
+      <button class="delete-btn" onclick="deletePerson()">Delete tab</button>
+    </div>
+
+    <div class="section-label" style="margin-top:6px;">History</div>
+    <div class="entry-list" id="entryList"></div>
+  </div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="overlay" id="settingsOverlay">
+  <div class="overlay-inner">
+    <div class="top-bar">
+      <button class="back-btn" onclick="closeOverlay('settingsOverlay')">←</button>
+      <h2>Settings</h2>
+    </div>
+
+    <div class="field">
+      <label>App name</label>
+      <input type="text" id="appNameInput" placeholder="You Owe Me" maxlength="30">
+    </div>
+    <p class="hint">Make it yours — your own name, a nickname, anything you want this ledger to be called.</p>
+
+    <button class="submit-btn" onclick="saveSettings()">Save</button>
+  </div>
+</div>
+
+<!-- CUSTOM CONFIRM MODAL -->
+<div class="confirm-backdrop" id="confirmBackdrop">
+  <div class="confirm-box">
+    <h3>Delete this tab?</h3>
+    <p id="confirmMsg">This can't be undone.</p>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="cancelDelete()">Cancel</button>
+      <button class="confirm-delete" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'you_owe_me_data_v1';
+  let state = load();
+  let currentDirection = 'owed_to_me';
+  let currentPersonId = null;
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const data = JSON.parse(raw);
+        if(!data.settings) data.settings = { appName: 'You Owe Me' };
+        return data;
+      }
+    }catch(e){}
+    return { people: [], debts: [], settings: { appName: 'You Owe Me' } };
+  }
+  function save(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function fmt(n){
+    const abs = Math.abs(n);
+    return '$' + abs.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function paidSoFar(debt){
+    return (debt.payments || []).reduce((s,p) => s + p.amount, 0);
+  }
+  function remaining(debt){
+    return Math.max(0, Math.round((debt.amount - paidSoFar(debt)) * 100) / 100);
+  }
+  function getBalance(personId){
+    return state.debts
+      .filter(d => d.personId === personId)
+      .reduce((sum,d) => sum + (d.direction === 'owed_to_me' ? remaining(d) : -remaining(d)), 0);
+  }
+
+  function renderHome(){
+    document.getElementById('coverTitle').textContent = state.settings.appName || 'You Owe Me';
+    const list = document.getElementById('personList');
+    list.innerHTML = '';
+    let totalOwed = 0, totalOwe = 0;
+
+    if(state.people.length === 0){
+      list.innerHTML = '<div class="empty-state">No tabs open yet.<br>Log your first debt below.</div>';
+    }
+
+    // sort by absolute balance desc
+    const sorted = [...state.people].sort((a,b) => Math.abs(getBalance(b.id)) - Math.abs(getBalance(a.id)));
+
+    sorted.forEach(p => {
+      const bal = getBalance(p.id);
+      if(bal > 0) totalOwed += bal;
+      if(bal < 0) totalOwe += Math.abs(bal);
+
+      const activeDebts = state.debts.filter(d => d.personId === p.id && remaining(d) > 0);
+      const lastDate = activeDebts.length
+        ? activeDebts.map(d=>d.date).sort().slice(-1)[0]
+        : null;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'card-wrap';
+
+      const deleteBg = document.createElement('div');
+      deleteBg.className = 'card-delete-bg';
+      deleteBg.innerHTML = `<span class="icon">🗑</span><span>Delete</span>`;
+      deleteBg.onclick = () => deletePersonById(p.id, false);
+
+      const card = document.createElement('div');
+      card.className = 'person-card ' + (bal > 0 ? 'pos' : bal < 0 ? 'neg' : '');
+      card.innerHTML = `
+        <div class="row1">
+          <span class="name">${escapeHtml(p.name)}</span>
+          <span class="amount">${bal === 0 ? '—' : (bal>0?'+':'−') + fmt(Math.abs(bal))}</span>
+        </div>
+        <div class="meta">${bal === 0 ? 'All settled up' : bal > 0 ? 'owes you' : 'you owe'}${lastDate ? ' · last activity ' + formatDate(lastDate) : ''}</div>
+      `;
+
+      wrap.appendChild(deleteBg);
+      wrap.appendChild(card);
+      list.appendChild(wrap);
+
+      attachSwipe(card, p.id);
+    });
+
+    document.getElementById('totalOwed').textContent = fmt(totalOwed);
+    document.getElementById('totalOwe').textContent = fmt(totalOwe);
+
+    document.getElementById('coverSub').textContent =
+      (totalOwed === 0 && totalOwe === 0) ? "Nothing open. Clean slate." :
+      `Net ${totalOwed - totalOwe >= 0 ? 'in your favor' : 'against you'}: ${fmt(Math.abs(totalOwed-totalOwe))}`;
+
+    // datalist
+    const dl = document.getElementById('personDatalist');
+    dl.innerHTML = state.people.map(p => `<option value="${escapeHtml(p.name)}">`).join('');
+  }
+
+  let openSwipeCard = null; // currently revealed card element
+
+  function closeOpenSwipe(){
+    if(openSwipeCard){
+      openSwipeCard.style.transform = 'translateX(0)';
+      openSwipeCard = null;
+    }
+  }
+
+  function attachSwipe(card, personId){
+    const MAX = 92;
+    let startX = 0, startY = 0, baseX = 0, dragging = false, moved = false, horizontal = false;
+
+    card.style.transition = 'transform .18s ease';
+
+    card.addEventListener('pointerdown', (e) => {
+      // if a different card is open, close it first
+      if(openSwipeCard && openSwipeCard !== card) closeOpenSwipe();
+      startX = e.clientX;
+      startY = e.clientY;
+      baseX = card === openSwipeCard ? -MAX : 0;
+      dragging = true;
+      moved = false;
+      horizontal = false;
+      card.style.transition = 'none';
+      card.setPointerCapture(e.pointerId);
+    });
+
+    card.addEventListener('pointermove', (e) => {
+      if(!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if(!horizontal){
+        if(Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        horizontal = Math.abs(dx) > Math.abs(dy);
+        if(!horizontal){ dragging = false; return; } // let vertical scroll happen
+      }
+      moved = true;
+      let x = baseX + dx;
+      x = Math.min(0, Math.max(-MAX, x));
+      card.style.transform = `translateX(${x}px)`;
+    });
+
+    function endDrag(e){
+      if(!dragging) return;
+      dragging = false;
+      card.style.transition = 'transform .18s ease';
+      if(!horizontal || !moved){
+        // treat as tap
+        if(openSwipeCard === card){
+          // was open, tap closes it
+          closeOpenSwipe();
+        } else if(!openSwipeCard){
+          openDetail(personId);
+        }
+        return;
+      }
+      const currentX = new DOMMatrix(getComputedStyle(card).transform).m41;
+      if(currentX < -MAX / 2){
+        card.style.transform = `translateX(-${MAX}px)`;
+        openSwipeCard = card;
+      } else {
+        card.style.transform = 'translateX(0)';
+        if(openSwipeCard === card) openSwipeCard = null;
+      }
+    }
+
+    card.addEventListener('pointerup', endDrag);
+    card.addEventListener('pointercancel', endDrag);
+  }
+
+  let pendingDeleteId = null;
+  let pendingDeleteFromDetail = false;
+
+  function deletePersonById(personId, fromDetail){
+    const person = state.people.find(p => p.id === personId);
+    if(!person) return;
+    const bal = getBalance(personId);
+
+    pendingDeleteId = personId;
+    pendingDeleteFromDetail = !!fromDetail;
+
+    document.getElementById('confirmMsg').innerHTML = bal !== 0
+      ? `<span class="warn">${escapeHtml(person.name)} still has an open balance of ${fmt(Math.abs(bal))}.</span> Delete this tab and its entire history? This can't be undone.`
+      : `Delete ${escapeHtml(person.name)}'s tab and its entire history? This can't be undone.`;
+
+    document.getElementById('confirmBackdrop').classList.add('show');
+  }
+
+  function cancelDelete(){
+    document.getElementById('confirmBackdrop').classList.remove('show');
+    pendingDeleteId = null;
+    closeOpenSwipe();
+  }
+
+  function confirmDelete(){
+    if(!pendingDeleteId) return;
+    state.debts = state.debts.filter(d => d.personId !== pendingDeleteId);
+    state.people = state.people.filter(p => p.id !== pendingDeleteId);
+    openSwipeCard = null;
+    save();
+
+    document.getElementById('confirmBackdrop').classList.remove('show');
+    if(pendingDeleteFromDetail){
+      document.getElementById('detailOverlay').classList.remove('show');
+    }
+    pendingDeleteId = null;
+    renderHome();
+  }
+
+  function formatDate(iso){
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+  }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function openSettings(){
+    document.getElementById('appNameInput').value = state.settings.appName || 'You Owe Me';
+    document.getElementById('settingsOverlay').classList.add('show');
+  }
+  function saveSettings(){
+    const name = document.getElementById('appNameInput').value.trim();
+    state.settings.appName = name || 'You Owe Me';
+    save();
+    closeOverlay('settingsOverlay');
+  }
+
+  function openAddScreen(){
+    document.getElementById('personInput').value = '';
+    document.getElementById('amountInput').value = '';
+    document.getElementById('descInput').value = '';
+    document.getElementById('dateInput').value = new Date().toISOString().slice(0,10);
+    setDirection('owed_to_me');
+    document.getElementById('addOverlay').classList.add('show');
+  }
+  function closeOverlay(id){
+    document.getElementById(id).classList.remove('show');
+    renderHome();
+  }
+  function setDirection(dir){
+    currentDirection = dir;
+    const owedBtn = document.getElementById('dirOwedBtn');
+    const oweBtn = document.getElementById('dirOweBtn');
+    owedBtn.classList.remove('active-owed');
+    oweBtn.classList.remove('active-owe');
+    if(dir === 'owed_to_me') owedBtn.classList.add('active-owed');
+    else oweBtn.classList.add('active-owe');
+  }
+
+  function submitDebt(){
+    const name = document.getElementById('personInput').value.trim();
+    const amount = parseFloat(document.getElementById('amountInput').value);
+    const desc = document.getElementById('descInput').value.trim();
+    const date = document.getElementById('dateInput').value || new Date().toISOString().slice(0,10);
+
+    if(!name){ alert('Who is this debt with?'); return; }
+    if(!amount || amount <= 0){ alert('Enter a valid amount.'); return; }
+
+    let person = state.people.find(p => p.name.toLowerCase() === name.toLowerCase());
+    if(!person){
+      person = { id: uid(), name };
+      state.people.push(person);
+    }
+
+    state.debts.push({
+      id: uid(),
+      personId: person.id,
+      amount,
+      direction: currentDirection,
+      description: desc || (currentDirection === 'owed_to_me' ? 'Money owed' : 'Money I owe'),
+      date,
+      payments: []
+    });
+
+    save();
+    closeOverlay('addOverlay');
+  }
+
+  function openDetail(personId){
+    currentPersonId = personId;
+    const person = state.people.find(p => p.id === personId);
+    document.getElementById('detailName').textContent = person.name;
+    renderDetail();
+    document.getElementById('detailOverlay').classList.add('show');
+  }
+
+  function renderDetail(){
+    const bal = getBalance(currentPersonId);
+    const amtEl = document.getElementById('detailAmount');
+    const labelEl = document.getElementById('detailLabel');
+    amtEl.textContent = bal === 0 ? '$0' : fmt(bal);
+    amtEl.style.color = bal > 0 ? 'var(--gold)' : bal < 0 ? 'var(--brick)' : 'var(--paper)';
+    labelEl.textContent = bal === 0 ? 'Settled up' : bal > 0 ? 'owes you' : 'you owe them';
+
+    const entries = state.debts
+      .filter(d => d.personId === currentPersonId)
+      .sort((a,b) => b.date.localeCompare(a.date));
+
+    const list = document.getElementById('entryList');
+    list.innerHTML = '';
+    if(entries.length === 0){
+      list.innerHTML = '<div class="empty-state">No entries yet.</div>';
+      return;
+    }
+    entries.forEach(d => {
+      const rem = remaining(d);
+      const isPaidFull = rem <= 0;
+      const sign = d.direction === 'owed_to_me' ? '+' : '−';
+      const payments = (d.payments || []).slice().sort((a,b) => b.date.localeCompare(a.date));
+
+      const card = document.createElement('div');
+      card.className = 'entry-card ' + (d.direction === 'owed_to_me' ? 'pos' : 'neg') + (isPaidFull ? ' settled' : '');
+      card.innerHTML = `
+        <div class="entry-top" onclick="toggleExpand('${d.id}')">
+          <div class="entry-text">
+            <div class="desc">${escapeHtml(d.description)}</div>
+            <div class="date">${formatDate(d.date)}${payments.length ? ' · ' + payments.length + ' payment' + (payments.length>1?'s':'') : ''}</div>
+          </div>
+          <div style="display:flex; align-items:center;">
+            <div class="entry-amts">
+              <div class="remaining">${isPaidFull ? 'Paid' : sign + fmt(rem)}</div>
+              ${payments.length ? `<div class="original">${fmt(d.amount)} orig.</div>` : ''}
+            </div>
+            <span class="entry-caret" id="caret-${d.id}">▾</span>
+          </div>
+        </div>
+        <div class="entry-body" id="body-${d.id}">
+          ${payments.length
+            ? payments.map(p => `<div class="payment-row"><span class="pdate">${formatDate(p.date)}</span><span>${fmt(p.amount)}</span></div>`).join('')
+            : '<div class="no-payments">No payments logged yet</div>'
+          }
+          ${isPaidFull
+            ? '<div class="paid-full-tag">✓ Paid in full</div>'
+            : `<div class="add-payment-row">
+                 <input type="number" step="0.01" placeholder="Amount" id="payamt-${d.id}">
+                 <input type="date" id="paydate-${d.id}" value="${new Date().toISOString().slice(0,10)}">
+                 <button onclick="addPayment('${d.id}', event)">Add</button>
+               </div>`
+          }
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function toggleExpand(debtId){
+    const body = document.getElementById('body-' + debtId);
+    const caret = document.getElementById('caret-' + debtId);
+    const isOpen = body.classList.toggle('open');
+    caret.textContent = isOpen ? '▴' : '▾';
+  }
+
+  function addPayment(debtId, evt){
+    evt.stopPropagation();
+    const debt = state.debts.find(d => d.id === debtId);
+    const amtInput = document.getElementById('payamt-' + debtId);
+    const dateInput = document.getElementById('paydate-' + debtId);
+    const amt = parseFloat(amtInput.value);
+    const date = dateInput.value || new Date().toISOString().slice(0,10);
+
+    if(!amt || amt <= 0){ alert('Enter a valid payment amount.'); return; }
+
+    const rem = remaining(debt);
+    const applied = Math.min(amt, rem);
+    if(!debt.payments) debt.payments = [];
+    debt.payments.push({ id: uid(), amount: applied, date });
+
+    save();
+    renderDetail();
+    renderHome();
+    // keep the entry expanded after re-render
+    const body = document.getElementById('body-' + debtId);
+    const caret = document.getElementById('caret-' + debtId);
+    if(body){ body.classList.add('open'); caret.textContent = '▴'; }
+  }
+
+  function deletePerson(){
+    deletePersonById(currentPersonId, true);
+  }
+
+  function settleAll(){
+    state.debts
+      .filter(d => d.personId === currentPersonId && remaining(d) > 0)
+      .forEach(d => {
+        const rem = remaining(d);
+        if(!d.payments) d.payments = [];
+        d.payments.push({ id: uid(), amount: rem, date: new Date().toISOString().slice(0,10) });
+      });
+    save();
+    renderDetail();
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    if(openSwipeCard && !openSwipeCard.contains(e.target) && !e.target.closest('.card-delete-bg')){
+      closeOpenSwipe();
+    }
+  });
+
+  renderHome();
+</script>
+</body>
+</html>
