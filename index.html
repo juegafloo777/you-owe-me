@@ -34,7 +34,7 @@
     min-height:100vh;
     display:flex;
     justify-content:center;
-    padding: 28px 16px 60px;
+    padding: 28px 8px 60px 24px;
   }
   #app{
     width:100%;
@@ -202,8 +202,9 @@
   .fab{
     position: fixed;
     bottom: 26px;
-    left:50%;
-    transform: translateX(-50%);
+    left:24px;
+    right:8px;
+    transform: none;
     background: var(--gold);
     color: var(--ledger);
     border:none;
@@ -219,10 +220,10 @@
     align-items:center;
     gap:8px;
     max-width:560px;
-    width: calc(100% - 32px);
+    width: auto;
     justify-content:center;
   }
-  .fab:active{ transform: translateX(-50%) scale(0.97); }
+  .fab:active{ transform: scale(0.97); }
 
   /* ---------- Overlay screens ---------- */
   .overlay{
